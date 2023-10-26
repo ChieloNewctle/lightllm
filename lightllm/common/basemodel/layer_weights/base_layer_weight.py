@@ -4,7 +4,7 @@ import numpy as np
 
 class BaseLayerWeight:
     def __init__(self):
-        self.tp_rank_ = None
+        pass
 
     def load_hf_weights(self, weights):
         """
@@ -26,7 +26,4 @@ class BaseLayerWeight:
         pass
 
     def _cuda(self, cpu_tensor):
-        if self.tp_rank_ is None:
-            return cpu_tensor.contiguous().to(self.data_type_).cuda()
-        else:
-            return cpu_tensor.contiguous().to(self.data_type_).cuda(self.tp_rank_)
+        return cpu_tensor.contiguous().to(self.data_type_).cuda()
