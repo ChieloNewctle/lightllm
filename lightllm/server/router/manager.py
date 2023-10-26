@@ -18,6 +18,7 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 class RouterManager:
 
     def __init__(self, weightdir, load_way, world_size, max_total_token_num, batch_max_tokens, running_max_req_size, eos_id,
+                 tokenizer_mode, trust_remote_code, max_token_healing_top_k,
                  router_port, detokenization_port, model_rpc_ports, mode=[], log_stats=True, log_stats_interval=10):
         self.model_weightdir = weightdir
         self.world_size = world_size
@@ -34,6 +35,10 @@ class RouterManager:
         self.eos_id = eos_id
         self.has_wait_tokens = 0
         self.max_wait_tokens = 10
+
+        self.tokenizer_mode = tokenizer_mode
+        self.trust_remote_code = trust_remote_code
+        self.max_token_healing_top_k = max_token_healing_top_k
 
         context = zmq.asyncio.Context(2)
         self.recv_from_httpserver = context.socket(zmq.PULL)
@@ -64,6 +69,21 @@ class RouterManager:
                     self.mode))
 
         await asyncio.gather(*init_model_ret)
+
+        if self.max_token_healing_top_k > 0:
+            init_token_healing_ret = []
+            for rank_id in range(self.world_size):
+                init_token_healing_ret.append(
+                    self.model_rpcs[rank_id].init_token_healing(
+                        self.model_weightdir,
+                        self.tokenizer_mode,
+                        self.trust_remote_code,
+                        self.max_token_healing_top_k,
+                    )
+                )
+
+            await asyncio.gather(*init_token_healing_ret)
+
         return
 
     def add_req(
@@ -284,6 +304,9 @@ def start_router_process(
             batch_max_tokens=args.batch_max_tokens,
             running_max_req_size=args.running_max_req_size,
             eos_id=args.eos_id,
+            tokenizer_mode=args.tokenizer_mode,
+            trust_remote_code=args.trust_remote_code,
+            max_token_healing_top_k=args.max_token_healing_top_k,
             router_port=router_port,
             detokenization_port=detokenization_port,
             model_rpc_ports=model_rpc_ports,

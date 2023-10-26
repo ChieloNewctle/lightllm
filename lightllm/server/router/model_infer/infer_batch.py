@@ -20,6 +20,7 @@ class InferSamplingParams:
         top_p: float = 1.0,
         top_k: int = -1,
         vocab_size: int = -1,
+        token_healing_top_k: int = 0,
     ) -> None:
         self.do_sample = do_sample
         self.presence_penalty = presence_penalty
@@ -29,6 +30,7 @@ class InferSamplingParams:
         self.top_k = top_k
         if self.top_k == -1:
             self.top_k = vocab_size
+        self.token_healing_top_k = token_healing_top_k
         return
 
 
@@ -337,3 +339,15 @@ class InferBatch:
         p_seq_len = torch.tensor(p_seq_len, dtype=torch.int32, device="cuda")
         p_cumsum_seq_len = torch.cumsum(p_seq_len, dim=0, dtype=torch.int32)
         return presence_penalties, frequency_penalties, temperatures, top_ps, top_ks, p_token_ids, p_token_counts, p_cumsum_seq_len, p_max_len_in_batch
+
+    def to_forward_kwargs(self, is_prefill):
+        return {
+            "batch_size": len(self),
+            "total_token_num": self.nopad_total_token_num,
+            "max_len_in_batch": self.nopad_max_len_in_batch,
+            "input_ids": self.input_ids,
+            "b_loc": self.nopad_b_loc,
+            "b_start_loc": self.nopad_b_start_loc,
+            "b_seq_len": self.nopad_b_seq_len,
+            "is_prefill": is_prefill,
+        }
